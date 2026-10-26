@@ -3,13 +3,167 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>링크 이동</title>
+  <title>제주 귤 뽑기</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      background: linear-gradient(#bfe6ff 0%, #e9f7ff 60%, #cdeccb 60%, #a9d9a0 100%);
+      color: #3a2a12;
+      user-select: none;
+    }
+    h1 { margin: 0; font-size: 1.6rem; }
+    .count { font-size: 1.1rem; }
+    .count b { font-size: 1.5rem; color: #e8760c; }
+    #stage { width: min(420px, 92vw); cursor: pointer; }
+    #stage svg { width: 100%; height: auto; display: block; overflow: visible; }
+    #tree { transform-origin: 200px 330px; }
+    #tree.shake { animation: shake 0.4s; }
+    @keyframes shake {
+      0%, 100% { transform: rotate(0); }
+      25% { transform: rotate(-2deg); }
+      75% { transform: rotate(2deg); }
+    }
+    .fruit { transition: transform 0.7s cubic-bezier(.5, 0, 1, .6); }
+    .fruit.fallen { transition: transform 0.7s cubic-bezier(.5, 0, 1, .6); }
+    #card {
+      width: min(360px, 92vw);
+      min-height: 120px;
+      padding: 16px 20px;
+      background: #fffaf0;
+      border: 3px solid #f59a23;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, .15);
+    }
+    #card.pop { animation: pop 0.35s; }
+    @keyframes pop {
+      from { transform: scale(.7); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    #jeju { font-size: 1.6rem; font-weight: bold; color: #d2620a; margin: 6px 0; }
+    #meaning { font-size: 1.05rem; }
+    #hint { color: #7a6a52; }
+  </style>
 </head>
 <body>
-  <ul>
-    <li><a href="https://www.naver.com" target="_blank">네이버</a></li>
-    <li><a href="https://www.daum.net" target="_blank">다음</a></li>
-    <li><a href="https://www.google.com" target="_blank">구글</a></li>
-  </ul>
+  <h1>🍊 제주 귤 뽑기</h1>
+  <div class="count">뽑은 귤: <b id="count">0</b>개</div>
+
+  <div id="stage" title="나무를 눌러 보세요">
+    <svg viewBox="0 0 400 400">
+      <ellipse cx="200" cy="372" rx="150" ry="16" fill="#8bc47f"/>
+      <g id="tree">
+        <rect x="178" y="220" width="44" height="150" rx="10" fill="#8a5a2b"/>
+        <circle cx="200" cy="150" r="115" fill="#3f9a4a"/>
+        <circle cx="130" cy="190" r="70" fill="#4aa854"/>
+        <circle cx="270" cy="190" r="70" fill="#4aa854"/>
+        <circle cx="200" cy="100" r="70" fill="#52b05c"/>
+        <g id="fruits"></g>
+      </g>
+    </svg>
+  </div>
+
+  <div id="card">
+    <div id="hint">나무를 눌러 귤을 떨어뜨려 보세요!</div>
+    <div id="jeju"></div>
+    <div id="meaning"></div>
+  </div>
+
+  <script>
+    const GREETINGS = [
+      ["혼저 옵서예", "어서 오세요"],
+      ["폭삭 속았수다", "정말 수고 많으셨습니다"],
+      ["고맙수다", "고맙습니다"],
+      ["하영 먹읍서", "많이 드세요"],
+      ["펜안하게 갑서", "편안하게 가세요"],
+      ["사랑햄수다", "사랑합니다"],
+      ["잘 지냅서", "잘 지내세요"],
+      ["맨도롱 똣똣", "따뜻하고 포근하게"],
+      ["어디 감수광?", "어디 가세요?"],
+      ["경해도 괜찮수다", "그래도 괜찮습니다"],
+      ["호끔만 기다립서", "조금만 기다려 주세요"],
+      ["오늘도 펜안헙서", "오늘도 편안하세요"]
+    ];
+    const POSITIONS = [
+      [150, 120], [215, 80], [265, 135], [110, 175],
+      [195, 160], [285, 195], [150, 225], [230, 215]
+    ];
+    const NS = "http://www.w3.org/2000/svg";
+    const fruitsEl = document.getElementById("fruits");
+    const countEl = document.getElementById("count");
+    const card = document.getElementById("card");
+    const treeEl = document.getElementById("tree");
+    let count = 0;
+    let fruits = [];
+    let lastIndex = -1;
+
+    function makeFruit([x, y]) {
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "fruit");
+      g.dataset.x = x;
+      g.dataset.y = y;
+      g.innerHTML =
+        `<circle cx="${x}" cy="${y}" r="17" fill="#ff9f1a" stroke="#e8760c" stroke-width="2"/>` +
+        `<ellipse cx="${x - 5}" cy="${y - 6}" rx="4" ry="2.5" fill="#ffd28a"/>` +
+        `<path d="M${x} ${y - 17} q6 -6 12 -2 q-6 6 -12 2z" fill="#2f7d32"/>`;
+      return g;
+    }
+
+    function growFruits() {
+      fruitsEl.innerHTML = "";
+      fruits = POSITIONS.map(makeFruit);
+      fruits.forEach(f => fruitsEl.appendChild(f));
+    }
+
+    function pick() {
+      treeEl.classList.remove("shake");
+      void treeEl.getBoundingClientRect();
+      treeEl.classList.add("shake");
+
+      const hanging = fruits.filter(f => !f.classList.contains("fallen"));
+      if (hanging.length === 0) {
+        growFruits();
+        return;
+      }
+      const fruit = hanging[Math.floor(Math.random() * hanging.length)];
+      fruit.classList.add("fallen");
+      const drop = 372 - 12 - Number(fruit.dataset.y);
+      const sideways = (Math.random() - 0.5) * 80;
+      fruit.style.transform = `translate(${sideways}px, ${drop}px)`;
+
+      let i;
+      do { i = Math.floor(Math.random() * GREETINGS.length); }
+      while (i === lastIndex && GREETINGS.length > 1);
+      lastIndex = i;
+      const [jeju, meaning] = GREETINGS[i];
+
+      count++;
+      countEl.textContent = count;
+      card.innerHTML =
+        `<div id="jeju">${jeju}</div><div id="meaning">(${meaning})</div>`;
+      card.classList.remove("pop");
+      void card.offsetWidth;
+      card.classList.add("pop");
+
+      if (hanging.length === 1) {
+        setTimeout(() => {
+          document.getElementById("meaning").textContent += " · 귤이 다시 열렸어요!";
+          growFruits();
+        }, 1200);
+      }
+    }
+
+    document.getElementById("stage").addEventListener("click", pick);
+    growFruits();
+  </script>
 </body>
 </html>
